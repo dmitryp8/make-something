@@ -1,58 +1,159 @@
 "use client";
 
-import { Code } from "@heroui/react";
-import { motion } from "framer-motion";
+import { Button, Card, CardBody, Accordion, AccordionItem, Link } from "@heroui/react";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
+const SECTIONS = [
+  {
+    title: "Battery Snapshot",
+    desc: "Current charge level, estimated range in miles & km, charge limit, and last charge timestamp.",
+    icon: "🔋",
+  },
+  {
+    title: "Vehicle Basics",
+    desc: "VIN, year, make, model, trim, odometer reading, exterior and interior colors.",
+    icon: "🚗",
+  },
+  {
+    title: "Options & Configuration",
+    desc: "Factory-installed options with human-readable names and raw option codes.",
+    icon: "⚙️",
+  },
+  {
+    title: "Software & System",
+    desc: "Current firmware version, Autopilot hardware generation, and connectivity status.",
+    icon: "💻",
+  },
+  {
+    title: "Warranty Snapshot",
+    desc: "Base and battery warranty limits, active/expired status, and expiration dates.",
+    icon: "🛡️",
+  },
+];
+
+const FAQ = [
+  {
+    q: "Do I have to share my Tesla password?",
+    a: "No. We use Tesla's official OAuth authorization. Your password is never shared with or seen by our service.",
+  },
+  {
+    q: "Is the connection read-only?",
+    a: "Yes. We only request permission to read vehicle data. We cannot send any commands to your car.",
+  },
+  {
+    q: "How long does it take?",
+    a: "Usually 1–2 minutes. We pull live data from your vehicle, compile the report, and generate a PDF.",
+  },
+  {
+    q: "Are you affiliated with Tesla?",
+    a: "No. OUT CHECK is an independent service. We are not affiliated with, endorsed by, or connected to Tesla, Inc.",
+  },
+  {
+    q: "How much does it cost?",
+    a: "Currently free for all users.",
+  },
+];
+
+export default function LandingPage() {
+  const router = useRouter();
+  const errorParam = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("error")
+    : null;
+  const errorMessage = errorParam === "oauth_not_configured"
+    ? "Report generation is temporarily unavailable. Tesla OAuth is not configured yet."
+    : errorParam === "auth_failed"
+      ? "Tesla sign-in failed. Please try again."
+      : null;
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-10 p-8 bg-gradient-to-b from-amber-50/50 via-orange-50/30 to-background">
-      <motion.div
-        className="text-center flex flex-col items-center gap-5"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        <div className="text-6xl">☀️</div>
-        <h1 className="font-[family-name:var(--font-manrope)] text-4xl sm:text-5xl font-bold tracking-tight text-zinc-800">
-          makesomething
+    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+      {/* Hero */}
+      <section className="flex flex-col items-center justify-center px-4 pb-20 pt-24 text-center sm:pt-32">
+        {errorMessage && (
+          <Card className="mb-6 w-full max-w-2xl border border-red-500/30 bg-red-500/10">
+            <CardBody>
+              <p className="text-sm text-red-200">{errorMessage}</p>
+            </CardBody>
+          </Card>
+        )}
+        <h1 className="font-[family-name:var(--font-space-grotesk)] text-5xl font-bold tracking-tight sm:text-6xl">
+          OUT CHECK
         </h1>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-        className="flex flex-col items-start gap-4 text-zinc-600"
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-zinc-400 font-mono text-sm w-5 text-right shrink-0 mt-0.5">1</span>
-          <span>go back to your terminal</span>
-        </div>
-        <div className="flex items-start gap-3">
-          <span className="text-zinc-400 font-mono text-sm w-5 text-right shrink-0 mt-0.5">2</span>
-          <span>sign in with your chatgpt account</span>
-        </div>
-        {[
-          { n: 3, cmd: "$start", label: "to begin building" },
-          { n: 4, cmd: "$imlost", label: "to get unstuck" },
-          { n: 5, cmd: "$fixit", label: "to fix problems" },
-          { n: 6, cmd: "$deploy", label: "to put it on the internet" },
-        ].map((item) => (
-          <div key={item.cmd} className="flex items-center gap-3">
-            <span className="text-zinc-400 font-mono text-sm w-5 text-right shrink-0">{item.n}</span>
-            <span>
-              type{" "}
-              <Code className="text-sm font-semibold bg-amber-50 text-amber-700">
-                {item.cmd}
-              </Code>{" "}
-              {item.label}
-            </span>
-          </div>
-        ))}
-        <p className="text-zinc-400 text-sm mt-2">
-          your progress tracker is in the top left — click it anytime
+        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
+          Generate a detailed snapshot report of your Tesla — battery, options, warranty, and more.
+          Share it with confidence when selling your car.
         </p>
-      </motion.div>
-    </div>
+        <Button
+          color="primary"
+          size="lg"
+          className="mt-8 text-base font-semibold"
+          onPress={() => router.push("/api/auth/tesla/start")}
+        >
+          Generate Report
+        </Button>
+        <Card className="mt-5 w-full max-w-xl border border-white/10 bg-slate-900/70">
+          <CardBody className="flex flex-col items-center gap-3 py-4 sm:flex-row sm:justify-between">
+            <p className="text-sm text-slate-300">Want to see the final format first?</p>
+            <Button
+              as={Link}
+              href="/r/sample"
+              color="secondary"
+              variant="flat"
+              size="sm"
+            >
+              View Sample Report
+            </Button>
+          </CardBody>
+        </Card>
+        <p className="mt-3 text-sm text-slate-500">
+          Free · Read-only · No password shared
+        </p>
+      </section>
+
+      {/* What's inside */}
+      <section className="mx-auto max-w-5xl px-4 pb-20">
+        <h2 className="mb-8 text-center font-[family-name:var(--font-manrope)] text-2xl font-bold">
+          What&apos;s Inside Your Report
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {SECTIONS.map((s) => (
+            <Card
+              key={s.title}
+              className="border border-white/10 bg-slate-800/60"
+            >
+              <CardBody className="gap-2">
+                <div className="text-3xl">{s.icon}</div>
+                <h3 className="text-lg font-semibold">{s.title}</h3>
+                <p className="text-sm text-slate-400">{s.desc}</p>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-2xl px-4 pb-24">
+        <h2 className="mb-8 text-center font-[family-name:var(--font-manrope)] text-2xl font-bold">
+          FAQ
+        </h2>
+        <Accordion variant="bordered" className="border-white/10">
+          {FAQ.map((item, i) => (
+            <AccordionItem
+              key={i}
+              aria-label={item.q}
+              title={<span className="text-white">{item.q}</span>}
+              className="text-slate-300"
+            >
+              {item.a}
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-600">
+        Not affiliated with Tesla, Inc.
+      </footer>
+    </main>
   );
 }

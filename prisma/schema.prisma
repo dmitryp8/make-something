@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  teslaConnections TeslaConnection[]
+  vehicles         Vehicle[]
+  reports          Report[]
+
+  @@map("users")
+}
+
+model TeslaConnection {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  accessToken  String    @map("access_token")
+  refreshToken String    @map("refresh_token")
+  expiresAt    DateTime  @map("expires_at")
+  scope        String?
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("tesla_connections")
+}
+
+model Vehicle {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  vin            String
+  teslaVehicleId String?   @map("tesla_vehicle_id")
+  make           String    @default("Tesla")
+  model          String
+  year           Int
+  trim           String?
+  colorExterior  String?   @map("color_exterior")
+  colorInterior  String?   @map("color_interior")
+  odometerMiles  Float?    @map("odometer_miles")
+  odometerKm     Float?    @map("odometer_km")
+  firstSeenAt    DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt     DateTime  @default(now()) @map("last_seen_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  reports Report[]
+
+  @@unique([userId, vin])
+  @@index([vin])
+  @@map("vehicles")
+}
+
+enum ReportStatus {
+  pending
+  processing
+  ready
+  failed
+}
+
+model Report {
+  id           String       @id @default(uuid()) @db.Uuid
+  userId       String       @map("user_id") @db.Uuid
+  vehicleId    String       @map("vehicle_id") @db.Uuid
+  reportNumber String       @map("report_number")
+  status       ReportStatus @default(pending)
+  snapshotJson Json?        @map("snapshot_json")
+  sectionsJson Json?        @map("sections_json")
+  pdfUrl       String?      @map("pdf_url")
+  shareToken   String?      @unique @map("share_token")
+  generatedAt  DateTime?    @map("generated_at")
+  failedReason String?      @map("failed_reason")
+  deletedAt    DateTime?    @map("deleted_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([userId])
+  @@index([vehicleId])
+  @@index([status])
+  @@map("reports")
+}

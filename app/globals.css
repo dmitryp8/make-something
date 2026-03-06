@@ -7,10 +7,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
-  --font-manrope: var(--font-manrope), system-ui, sans-serif;
-  --font-space-grotesk: var(--font-space-grotesk), system-ui, sans-serif;
-  --font-bricolage: var(--font-bricolage), system-ui, sans-serif;
-  --font-instrument-serif: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-manrope: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-space-grotesk: "Trebuchet MS", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-bricolage: "Gill Sans", "Segoe UI", system-ui, sans-serif;
+  --font-instrument-serif: Georgia, "Times New Roman", serif;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #0f172a !important;
+  }
 }
