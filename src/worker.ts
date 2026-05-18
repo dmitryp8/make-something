@@ -117,9 +117,29 @@ async function processReport(reportId: string) {
     trim: report.vehicle.trim,
   });
 
+  // Load historical reports for health score + degradation trend (oldest first)
+  let history: typeof sections[] = [];
+  try {
+    const rows = await prisma.report.findMany({
+      where: { vehicleId: report.vehicleId, status: "ready", id: { not: report.id } },
+      select: { sectionsJson: true },
+      orderBy: { generatedAt: "asc" },
+      take: 20,
+    });
+    history = rows
+      .map((r) => r.sectionsJson)
+      .filter((s): s is NonNullable<typeof s> => s !== null) as typeof sections[];
+  } catch (err) {
+    console.warn("[worker] history load failed, continuing without:", err);
+  }
+
+  // Compute health score and store it in sections so share page can read it
+  const { computeHealthScore } = await import("../lib/health-score.js");
+  sections.meta.health_score = computeHealthScore(sections, history).score;
+
   // Generate PDF
   const { buildReportHtml } = await import("../lib/pdf-template.js");
-  const html = buildReportHtml(sections, report.reportNumber);
+  const html = buildReportHtml(sections, report.reportNumber, null, history);
 
   let pdfUrl: string | null = null;
 
@@ -144,8 +164,8 @@ async function processReport(reportId: string) {
     console.warn("[worker] PDF generation failed (continuing without PDF):", err);
   }
 
-  // Generate share token
-  const shareToken = randomBytes(20).toString("hex");
+  // Preserve existing token on retries so previously shared links stay valid
+  const shareToken = report.shareToken ?? randomBytes(20).toString("hex");
 
   // Update report
   await prisma.report.update({

@@ -35,6 +35,7 @@ export function transformToSections(
   // Battery snapshot
   const battery_snapshot = {
     battery_level_percent: charge.battery_level ?? null,
+    usable_battery_level: charge.usable_battery_level ?? null,
     est_range_miles: charge.battery_range ? Math.round(charge.battery_range) : null,
     est_range_km: charge.battery_range ? Math.round(charge.battery_range * MILES_TO_KM) : null,
     charge_limit_percent: charge.charge_limit_soc ?? null,
@@ -126,6 +127,7 @@ export function transformToSections(
     meta: {
       generated_at: new Date().toISOString(),
       generator_version: "1.0.0",
+      health_score: null,
     },
   };
 }
