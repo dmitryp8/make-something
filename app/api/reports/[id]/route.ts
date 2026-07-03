@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeDelta } from "@/lib/compare";
+import type { SectionsJson } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -26,6 +28,22 @@ export async function GET(
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
 
+  let delta = null;
+  const compareWithId = _request.nextUrl.searchParams.get("compareWith");
+  if (compareWithId) {
+    const prevReport = await prisma.report.findFirst({
+      where: { id: compareWithId, userId: auth.session.userId, deletedAt: null },
+    });
+    if (prevReport?.sectionsJson && report.sectionsJson) {
+      delta = computeDelta(
+        report.sectionsJson as SectionsJson,
+        prevReport.sectionsJson as SectionsJson,
+        prevReport.reportNumber,
+        prevReport.generatedAt?.toISOString() ?? null,
+      );
+    }
+  }
+
   return NextResponse.json({
     id: report.id,
     report_number: report.reportNumber,
@@ -42,5 +60,6 @@ export async function GET(
     pdf_url: report.pdfUrl,
     generated_at: report.generatedAt?.toISOString() ?? null,
     share_token: report.shareToken,
+    delta,
   });
 }

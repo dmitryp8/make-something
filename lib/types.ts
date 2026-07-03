@@ -2,6 +2,7 @@
 
 export interface BatterySnapshot {
   battery_level_percent: number | null;
+  usable_battery_level: number | null;
   est_range_miles: number | null;
   est_range_km: number | null;
   charge_limit_percent: number | null;
@@ -48,6 +49,7 @@ export interface WarrantySnapshot {
 export interface ReportMeta {
   generated_at: string;
   generator_version: string;
+  health_score: number | null;
 }
 
 export interface SectionsJson {
