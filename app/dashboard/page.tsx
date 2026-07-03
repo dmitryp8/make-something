@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card, CardBody, CardHeader, Chip, Spinner, Divider } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import type { VehicleListItem, ReportListItem } from "@/lib/types";
+import type { CompareDelta } from "@/lib/compare";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,6 +14,9 @@ export default function DashboardPage() {
   const [loadingReports, setLoadingReports] = useState(true);
   const [generating, setGenerating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [compareFromId, setCompareFromId] = useState<string | null>(null);
+  const [deltaData, setDeltaData] = useState<{ fromId: string; delta: CompareDelta } | null>(null);
+  const [deltaLoading, setDeltaLoading] = useState(false);
 
   const fetchVehicles = useCallback(async (forceRefresh = false) => {
     try {
@@ -86,6 +90,29 @@ export default function DashboardPage() {
     navigator.clipboard.writeText(url);
   };
 
+  const loadDelta = async (fromId: string, withId: string) => {
+    setDeltaLoading(true);
+    try {
+      const res = await fetch(`/api/reports/${fromId}?compareWith=${withId}`);
+      const data = await res.json();
+      if (data.delta) setDeltaData({ fromId, delta: data.delta });
+    } catch {
+      // leave deltaData as-is
+    } finally {
+      setDeltaLoading(false);
+    }
+  };
+
+  const openCompare = (reportId: string) => {
+    if (compareFromId === reportId) {
+      setCompareFromId(null);
+      setDeltaData(null);
+    } else {
+      setCompareFromId(reportId);
+      setDeltaData(null);
+    }
+  };
+
   const statusColor = (status: string) => {
     switch (status) {
       case "ready": return "success";
@@ -94,6 +121,11 @@ export default function DashboardPage() {
       case "failed": return "danger";
       default: return "default";
     }
+  };
+
+  const deltaSign = (n: number | null) => {
+    if (n === null) return "—";
+    return n > 0 ? `+${n}` : `${n}`;
   };
 
   return (
@@ -159,57 +191,147 @@ export default function DashboardPage() {
             ) : reports.length === 0 ? (
               <p className="text-sm text-slate-400">No reports yet. Generate one from your vehicles above.</p>
             ) : (
-              reports.map((r) => (
-                <div key={r.id} className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold">
-                        {r.vehicle.year} {r.vehicle.model}
-                        <span className="ml-2 font-mono text-xs text-slate-500">{r.vehicle.vin}</span>
-                      </p>
-                      <p className="text-xs text-slate-400">{r.report_number}</p>
-                      {r.generated_at && (
-                        <p className="text-xs text-slate-500">
-                          {new Date(r.generated_at).toLocaleDateString("en-US", {
-                            year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                          })}
+              reports.map((r) => {
+                const otherReady = reports.filter(
+                  (x) => x.id !== r.id && x.status === "ready" && x.vehicle.vin === r.vehicle.vin,
+                );
+                const isCompareOpen = compareFromId === r.id;
+                const delta = deltaData?.fromId === r.id ? deltaData.delta : null;
+
+                return (
+                  <div key={r.id} className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">
+                          {r.vehicle.year} {r.vehicle.model}
+                          <span className="ml-2 font-mono text-xs text-slate-500">{r.vehicle.vin}</span>
                         </p>
-                      )}
+                        <p className="text-xs text-slate-400">{r.report_number}</p>
+                        {r.generated_at && (
+                          <p className="text-xs text-slate-500">
+                            {new Date(r.generated_at).toLocaleDateString("en-US", {
+                              year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                            })}
+                          </p>
+                        )}
+                      </div>
+                      <Chip color={statusColor(r.status)} variant="flat" size="sm">
+                        {r.status}
+                      </Chip>
                     </div>
-                    <Chip color={statusColor(r.status)} variant="flat" size="sm">
-                      {r.status}
-                    </Chip>
+
+                    {r.status === "ready" && (
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" variant="flat" onPress={() => router.push(`/report/${r.id}`)}>
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          onPress={() => {
+                            fetch(`/api/reports/${r.id}`)
+                              .then((res) => res.json())
+                              .then((data) => {
+                                if (data.share_token) copyShareLink(data.share_token);
+                              });
+                          }}
+                        >
+                          Copy Share Link
+                        </Button>
+                        {otherReady.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant={isCompareOpen ? "solid" : "flat"}
+                            color={isCompareOpen ? "primary" : "default"}
+                            onPress={() => openCompare(r.id)}
+                          >
+                            Compare
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {r.status === "ready" && isCompareOpen && (
+                      <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/60 p-3">
+                        <p className="mb-2 text-xs font-semibold text-slate-300">Compare against:</p>
+                        <div className="flex flex-col gap-1">
+                          {otherReady.map((other) => (
+                            <button
+                              key={other.id}
+                              className="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-white/10"
+                              onClick={() => loadDelta(r.id, other.id)}
+                            >
+                              <span className="text-slate-300">{other.report_number}</span>
+                              <span className="text-slate-500">
+                                {other.generated_at
+                                  ? new Date(other.generated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                  : "—"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {deltaLoading && (
+                          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                            <Spinner size="sm" /> Loading comparison...
+                          </div>
+                        )}
+
+                        {delta && !deltaLoading && (
+                          <div className="mt-3">
+                            <p className="mb-1 text-xs text-slate-400">
+                              vs {delta.previous_report_number}
+                              {delta.days_between !== null ? ` · ${delta.days_between} days` : ""}
+                            </p>
+                            <table className="w-full text-xs">
+                              <tbody>
+                                {delta.odometer_delta !== null && (
+                                  <tr className="border-t border-white/5">
+                                    <td className="py-1 text-slate-400">Odometer</td>
+                                    <td className="py-1 text-right font-mono text-slate-200">
+                                      {deltaSign(delta.odometer_delta)} mi
+                                    </td>
+                                  </tr>
+                                )}
+                                {delta.battery_delta !== null && (
+                                  <tr className="border-t border-white/5">
+                                    <td className="py-1 text-slate-400">Usable battery</td>
+                                    <td className="py-1 text-right font-mono text-slate-200">
+                                      {deltaSign(delta.battery_delta)}%
+                                    </td>
+                                  </tr>
+                                )}
+                                {delta.range_delta !== null && (
+                                  <tr className="border-t border-white/5">
+                                    <td className="py-1 text-slate-400">Est. range</td>
+                                    <td className="py-1 text-right font-mono text-slate-200">
+                                      {deltaSign(delta.range_delta)} mi
+                                    </td>
+                                  </tr>
+                                )}
+                                {delta.health_score_delta !== null && (
+                                  <tr className="border-t border-white/5">
+                                    <td className="py-1 text-slate-400">Health score</td>
+                                    <td className={`py-1 text-right font-mono ${delta.health_score_delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                      {deltaSign(delta.health_score_delta)} pts
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {(r.status === "pending" || r.status === "processing") && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                        <Spinner size="sm" /> Generating report...
+                      </div>
+                    )}
                   </div>
-
-                  {r.status === "ready" && (
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" variant="flat" onPress={() => router.push(`/report/${r.id}`)}>
-                        View
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="flat"
-                        onPress={() => {
-                          fetch(`/api/reports/${r.id}`)
-                            .then((res) => res.json())
-                            .then((data) => {
-                              if (data.share_token) copyShareLink(data.share_token);
-                            });
-                        }}
-                      >
-                        Copy Share Link
-                      </Button>
-                      {/* PDF download would go through pdf_url */}
-                    </div>
-                  )}
-
-                  {(r.status === "pending" || r.status === "processing") && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-                      <Spinner size="sm" /> Generating report...
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </CardBody>
         </Card>
